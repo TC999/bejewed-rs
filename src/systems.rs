@@ -94,3 +94,48 @@ pub fn refill_system(mut board: ResMut<GameBoard>) {
         }
     }
 }
+
+// 颜色映射
+fn gem_color(gem: GemType) -> Color {
+    match gem {
+        GemType::Red => Color::RED,
+        GemType::Green => Color::GREEN,
+        GemType::Blue => Color::BLUE,
+        GemType::Yellow => Color::YELLOW,
+        GemType::Purple => Color::PURPLE,
+    }
+}
+
+// 渲染系统：清除所有旧宝石，再根据 GameBoard 绘制新宝石
+pub fn render_board_system(
+    mut commands: Commands,
+    board: Res<GameBoard>,
+    query: Query<Entity, With<Sprite>>,
+) {
+    // 清除旧的
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
+    // 假设一个格子 40x40 像素，左上角为(0,0)
+    let offset_x = -(BOARD_WIDTH as f32) * 20.0 + 20.0;
+    let offset_y = -(BOARD_HEIGHT as f32) * 20.0 + 20.0;
+
+    for y in 0..BOARD_HEIGHT {
+        for x in 0..BOARD_WIDTH {
+            let color = gem_color(board.grid[y][x]);
+            commands.spawn(SpriteBundle {
+                sprite: Sprite {
+                    color,
+                    custom_size: Some(Vec2::splat(36.0)),
+                    ..Default::default()
+                },
+                transform: Transform::from_xyz(
+                    offset_x + x as f32 * 40.0,
+                    offset_y + y as f32 * 40.0,
+                    0.0,
+                ),
+                ..Default::default()
+            });
+        }
+    }
+}
