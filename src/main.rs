@@ -14,7 +14,7 @@ fn main() {
             systems::match_system,
             systems::fall_system,
             systems::refill_system,
-            systems::render_board_system, // 每帧刷新棋盘
+            systems::render_board_system, // 最后渲染
         ))
         .run();
 }

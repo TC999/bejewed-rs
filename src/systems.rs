@@ -6,8 +6,10 @@ use crate::board::{GameBoard, BOARD_WIDTH, BOARD_HEIGHT};
 use crate::gem::GemType;
 
 // 初始化系统，生成随机棋盘
-pub fn setup(mut board: ResMut<GameBoard>) {
+pub fn setup(mut commands: Commands, mut board: ResMut<GameBoard>) {
+    println!("setup 系统执行，初始化棋盘");
     *board = GameBoard::new_random();
+    commands.spawn(Camera2dBundle::default());
 }
 
 // 简单输入系统：这里只是示例，实际应监听鼠标点击或拖动
@@ -18,6 +20,7 @@ pub fn input_system(
 ) {
     // 示例：按下空格键，随机交换两个宝石
     if keyboard_input.just_pressed(KeyCode::Space) {
+        println!("input_system: 检测到空格按下，随机交换两个宝石");
         let x1 = rand::random::<usize>() % BOARD_WIDTH;
         let y1 = rand::random::<usize>() % BOARD_HEIGHT;
         let x2 = rand::random::<usize>() % BOARD_WIDTH;
@@ -65,9 +68,11 @@ pub fn match_system(mut board: ResMut<GameBoard>) {
         }
     }
 
-    // 实际项目中应避免重复清除
-    for &(x, y) in &to_clear {
-        board.grid[y][x] = GemType::random();
+    if !to_clear.is_empty() {
+        println!("match_system: 检查棋盘三消情况，发现 {} 处可消除", to_clear.len());
+        for &(x, y) in &to_clear {
+            board.grid[y][x] = GemType::random();
+        }
     }
 }
 
