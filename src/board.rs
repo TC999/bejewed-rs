@@ -1,11 +1,18 @@
 use crate::gem::GemType;
+use bevy::prelude::{Resource};
 
 pub const BOARD_WIDTH: usize = 8;
 pub const BOARD_HEIGHT: usize = 8;
 
-#[derive(Default)]
+#[derive(Resource, Clone)]
 pub struct GameBoard {
     pub grid: [[GemType; BOARD_WIDTH]; BOARD_HEIGHT],
+}
+
+impl Default for GameBoard {
+    fn default() -> Self {
+        Self::new_random()
+    }
 }
 
 impl GameBoard {

@@ -20,3 +20,9 @@ impl GemType {
         }
     }
 }
+
+impl Default for GemType {
+    fn default() -> Self {
+        GemType::Red
+    }
+}

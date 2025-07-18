@@ -1,4 +1,7 @@
 use bevy::prelude::*;
+use bevy::input::ButtonInput;
+use bevy::input::keyboard::KeyCode;
+
 use crate::board::{GameBoard, BOARD_WIDTH, BOARD_HEIGHT};
 use crate::gem::GemType;
 
@@ -9,7 +12,7 @@ pub fn setup(mut board: ResMut<GameBoard>) {
 
 // 简单输入系统：这里只是示例，实际应监听鼠标点击或拖动
 pub fn input_system(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut board: ResMut<GameBoard>,
     mut selected: Local<Option<(usize, usize)>>,
 ) {
@@ -24,7 +27,6 @@ pub fn input_system(
     }
 }
 
-// 交换函数（可独立抽出到board.rs）
 trait Swap {
     fn swap(&mut self, a: (usize, usize), b: (usize, usize));
 }
