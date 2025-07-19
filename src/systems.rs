@@ -1,35 +1,115 @@
 use bevy::prelude::*;
 use bevy::input::ButtonInput;
-use bevy::input::keyboard::KeyCode;
+use bevy::window::PrimaryWindow;
 
 use crate::board::{GameBoard, BOARD_WIDTH, BOARD_HEIGHT};
 use crate::gem::GemType;
+use crate::drag::DragState;
 
-// 初始化系统，生成随机棋盘
+// 初始化系统，初始化棋盘和相机
 pub fn setup(mut commands: Commands, mut board: ResMut<GameBoard>) {
     println!("setup 系统执行，初始化棋盘");
     *board = GameBoard::new_random();
     commands.spawn(Camera2dBundle::default());
 }
 
-// 简单输入系统：这里只是示例，实际应监听鼠标点击或拖动
-pub fn input_system(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut board: ResMut<GameBoard>,
-    mut selected: Local<Option<(usize, usize)>>,
-) {
-    // 示例：按下空格键，随机交换两个宝石
-    if keyboard_input.just_pressed(KeyCode::Space) {
-        println!("input_system: 检测到空格按下，随机交换两个宝石");
-        let x1 = rand::random::<usize>() % BOARD_WIDTH;
-        let y1 = rand::random::<usize>() % BOARD_HEIGHT;
-        let x2 = rand::random::<usize>() % BOARD_WIDTH;
-        let y2 = rand::random::<usize>() % BOARD_HEIGHT;
-        board.grid.swap((x1, y1), (x2, y2));
-        *selected = Some((x2, y2));
+// 颜色映射
+fn gem_color(gem: GemType) -> Color {
+    match gem {
+        GemType::Red => Color::RED,
+        GemType::Green => Color::GREEN,
+        GemType::Blue => Color::BLUE,
+        GemType::Yellow => Color::YELLOW,
+        GemType::Purple => Color::PURPLE,
     }
 }
 
+// 渲染系统
+pub fn render_board_system(
+    mut commands: Commands,
+    board: Res<GameBoard>,
+    query: Query<Entity, With<Sprite>>,
+) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
+    let offset_x = -(BOARD_WIDTH as f32) * 20.0 + 20.0;
+    let offset_y = -(BOARD_HEIGHT as f32) * 20.0 + 20.0;
+
+    for y in 0..BOARD_HEIGHT {
+        for x in 0..BOARD_WIDTH {
+            let color = gem_color(board.grid[y][x]);
+            commands.spawn(SpriteBundle {
+                sprite: Sprite {
+                    color,
+                    custom_size: Some(Vec2::splat(36.0)),
+                    ..Default::default()
+                },
+                transform: Transform::from_xyz(
+                    offset_x + x as f32 * 40.0,
+                    offset_y + y as f32 * 40.0,
+                    0.0,
+                ),
+                ..Default::default()
+            });
+        }
+    }
+}
+
+// 鼠标拖拽系统
+pub fn drag_system(
+    mut drag_state: ResMut<DragState>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+) {
+    let window = windows.single();
+    let (camera, camera_transform) = camera_query.single();
+    if let Some(pos) = window.cursor_position() {
+        if let Some(world_pos) = camera.viewport_to_world_2d(camera_transform, pos) {
+            let board_x = ((world_pos.x + (BOARD_WIDTH as f32) * 20.0) / 40.0).floor() as usize;
+            let board_y = ((world_pos.y + (BOARD_HEIGHT as f32) * 20.0) / 40.0).floor() as usize;
+            if board_x < BOARD_WIDTH && board_y < BOARD_HEIGHT {
+                // 按下鼠标左键，记录起点
+                if mouse_button_input.just_pressed(MouseButton::Left) {
+                    drag_state.start = Some((board_x, board_y));
+                    drag_state.is_dragging = true;
+                }
+                // 拖拽中记录终点
+                if drag_state.is_dragging {
+                    drag_state.end = Some((board_x, board_y));
+                }
+                // 松开左键，结束拖拽
+                if mouse_button_input.just_released(MouseButton::Left) && drag_state.is_dragging {
+                    drag_state.is_dragging = false;
+                }
+            }
+        }
+    }
+}
+
+// 拖拽交换逻辑
+pub fn handle_drag_swap(
+    mut board: ResMut<GameBoard>,
+    mut drag_state: ResMut<DragState>,
+) {
+    if !drag_state.is_dragging {
+        if let (Some(start), Some(end)) = (drag_state.start, drag_state.end) {
+            let dx = start.0 as i32 - end.0 as i32;
+            let dy = start.1 as i32 - end.1 as i32;
+            // 只允许交换相邻格
+            if (dx.abs() == 1 && dy == 0) || (dy.abs() == 1 && dx == 0) {
+                println!("交换宝石: {:?} <-> {:?}", start, end);
+                board.grid.swap(start, end);
+            }
+            // 重置拖拽状态
+            drag_state.start = None;
+            drag_state.end = None;
+        }
+    }
+}
+
+// 交换 trait
 trait Swap {
     fn swap(&mut self, a: (usize, usize), b: (usize, usize));
 }
@@ -96,51 +176,6 @@ pub fn refill_system(mut board: ResMut<GameBoard>) {
             if board.grid[y][x] == GemType::Red {
                 board.grid[y][x] = GemType::random();
             }
-        }
-    }
-}
-
-// 颜色映射
-fn gem_color(gem: GemType) -> Color {
-    match gem {
-        GemType::Red => Color::RED,
-        GemType::Green => Color::GREEN,
-        GemType::Blue => Color::BLUE,
-        GemType::Yellow => Color::YELLOW,
-        GemType::Purple => Color::PURPLE,
-    }
-}
-
-// 渲染系统：清除所有旧宝石，再根据 GameBoard 绘制新宝石
-pub fn render_board_system(
-    mut commands: Commands,
-    board: Res<GameBoard>,
-    query: Query<Entity, With<Sprite>>,
-) {
-    // 清除旧的
-    for entity in query.iter() {
-        commands.entity(entity).despawn();
-    }
-    // 假设一个格子 40x40 像素，左上角为(0,0)
-    let offset_x = -(BOARD_WIDTH as f32) * 20.0 + 20.0;
-    let offset_y = -(BOARD_HEIGHT as f32) * 20.0 + 20.0;
-
-    for y in 0..BOARD_HEIGHT {
-        for x in 0..BOARD_WIDTH {
-            let color = gem_color(board.grid[y][x]);
-            commands.spawn(SpriteBundle {
-                sprite: Sprite {
-                    color,
-                    custom_size: Some(Vec2::splat(36.0)),
-                    ..Default::default()
-                },
-                transform: Transform::from_xyz(
-                    offset_x + x as f32 * 40.0,
-                    offset_y + y as f32 * 40.0,
-                    0.0,
-                ),
-                ..Default::default()
-            });
         }
     }
 }
