@@ -19,6 +19,7 @@ fn main() {
             systems::match_system,
             systems::fall_system,
             systems::refill_system,
+            systems::gem_animation_system,
             systems::render_board_system,
             systems::scoreboard_ui_system, // 新增
         ))

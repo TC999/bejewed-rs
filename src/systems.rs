@@ -8,6 +8,7 @@ use crate::drag::DragState;
 use crate::scoreboard::Scoreboard;
 use bevy::text::TextStyle;
 use bevy::ui::{PositionType, Style, Val};
+use crate::gem::Gem;
 
 // 初始化系统，初始化棋盘和相机
 pub fn setup(mut commands: Commands, mut board: ResMut<GameBoard>) {
@@ -126,8 +127,10 @@ impl Swap for [[GemType; BOARD_WIDTH]; BOARD_HEIGHT] {
 
 // 检测三消
 pub fn match_system(
+    mut commands: Commands,
     mut board: ResMut<GameBoard>,
     mut scoreboard: ResMut<Scoreboard>,
+    gem_query: Query<(Entity, &Gem)>,
 ) {
     let mut to_clear = vec![];
 
@@ -155,11 +158,15 @@ pub fn match_system(
     }
 
     if !to_clear.is_empty() {
-        println!("match_system: 检查棋盘三消情况，发现 {} 处可消除", to_clear.len());
         for &(x, y) in &to_clear {
+            // 移除对应Gem Entity
+            for (entity, gem) in gem_query.iter() {
+                if gem.x == x && gem.y == y {
+                    commands.entity(entity).despawn();
+                }
+            }
             board.grid[y][x] = GemType::random();
         }
-        // 计分
         scoreboard.total_removed += to_clear.len();
         scoreboard.score += to_clear.len() * 10;
     }
@@ -185,6 +192,35 @@ pub fn refill_system(mut board: ResMut<GameBoard>) {
             if board.grid[y][x] == GemType::Red {
                 board.grid[y][x] = GemType::random();
             }
+        }
+    }
+}
+
+pub fn gem_animation_system(
+    mut query: Query<(&Gem, &mut Transform)>,
+    time: Res<Time>,
+) {
+    let offset_x = -(BOARD_WIDTH as f32) * 20.0 + 20.0;
+    let offset_y = -(BOARD_HEIGHT as f32) * 20.0 + 20.0;
+    let speed = 20.0; // 每秒移动像素
+
+    for (gem, mut transform) in query.iter_mut() {
+        let target = Vec3::new(
+            offset_x + gem.x as f32 * 40.0,
+            offset_y + gem.y as f32 * 40.0,
+            0.0,
+        );
+        let direction = target - transform.translation;
+        let distance = direction.length();
+        if distance > 1.0 {
+            let step = direction.normalize() * speed * time.delta_seconds();
+            if step.length() > distance {
+                transform.translation = target;
+            } else {
+                transform.translation += step;
+            }
+        } else {
+            transform.translation = target;
         }
     }
 }

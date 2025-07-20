@@ -1,6 +1,6 @@
-use rand::prelude::*;
+use bevy::prelude::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GemType {
     Red,
     Green,
@@ -8,21 +8,21 @@ pub enum GemType {
     Yellow,
     Purple,
 }
-
 impl GemType {
     pub fn random() -> Self {
-        match rand::random::<u8>() % 5 {
-            0 => GemType::Red,
-            1 => GemType::Green,
-            2 => GemType::Blue,
-            3 => GemType::Yellow,
-            _ => GemType::Purple,
+        use GemType::*;
+        match fastrand::usize(0..5) {
+            0 => Red,
+            1 => Green,
+            2 => Blue,
+            3 => Yellow,
+            _ => Purple,
         }
     }
 }
 
-impl Default for GemType {
-    fn default() -> Self {
-        GemType::Red
-    }
+#[derive(Component)]
+pub struct Gem {
+    pub x: usize,
+    pub y: usize,
 }
