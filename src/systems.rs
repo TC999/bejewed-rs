@@ -5,6 +5,9 @@ use bevy::window::PrimaryWindow;
 use crate::board::{GameBoard, BOARD_WIDTH, BOARD_HEIGHT};
 use crate::gem::GemType;
 use crate::drag::DragState;
+use crate::scoreboard::Scoreboard;
+use bevy::text::TextStyle;
+use bevy::ui::{PositionType, Style, Val};
 
 // 初始化系统，初始化棋盘和相机
 pub fn setup(mut commands: Commands, mut board: ResMut<GameBoard>) {
@@ -122,7 +125,10 @@ impl Swap for [[GemType; BOARD_WIDTH]; BOARD_HEIGHT] {
 }
 
 // 检测三消
-pub fn match_system(mut board: ResMut<GameBoard>) {
+pub fn match_system(
+    mut board: ResMut<GameBoard>,
+    mut scoreboard: ResMut<Scoreboard>,
+) {
     let mut to_clear = vec![];
 
     // 横向检测
@@ -153,6 +159,9 @@ pub fn match_system(mut board: ResMut<GameBoard>) {
         for &(x, y) in &to_clear {
             board.grid[y][x] = GemType::random();
         }
+        // 计分
+        scoreboard.total_removed += to_clear.len();
+        scoreboard.score += to_clear.len() * 10;
     }
 }
 
@@ -179,3 +188,39 @@ pub fn refill_system(mut board: ResMut<GameBoard>) {
         }
     }
 }
+
+pub fn scoreboard_ui_system(
+    scoreboard: Res<Scoreboard>,
+    mut commands: Commands,
+    query: Query<Entity, With<ScoreboardTag>>,
+) {
+    // 先清空旧的分数文本
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
+    // 居中显示分数
+    commands.spawn((
+        TextBundle::from_section(
+            format!(
+                "CLEAR: {}\nSCORE: {}",
+                scoreboard.total_removed, scoreboard.score
+            ),
+            TextStyle {
+                font_size: 30.0,
+                color: Color::WHITE,
+                ..Default::default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10.0),
+            left: Val::Px(10.0),
+            ..Default::default()
+        }),
+        ScoreboardTag,
+    ));
+}
+
+/// 仅用于标记计分板UI
+#[derive(Component)]
+pub struct ScoreboardTag;
